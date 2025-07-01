@@ -1,0 +1,30 @@
+{
+  "name": "foodie-robo",
+  "version": "1.0.0",
+  "description": "A witty restaurant chatbot using WebSocket and Google Gemini AI",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "websocket",
+    "chatbot",
+    "restaurant",
+    "gemini",
+    "ai"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@google/generative-ai": "^0.15.0",
+    "ws": "^8.18.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+} 

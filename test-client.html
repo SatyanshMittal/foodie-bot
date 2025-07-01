@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Foodie Robo Test Client</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            text-align: center;
+        }
+        .connected { background-color: rgba(76, 175, 80, 0.3); }
+        .disconnected { background-color: rgba(244, 67, 54, 0.3); }
+        .connecting { background-color: rgba(255, 193, 7, 0.3); }
+        
+        .chat-container {
+            height: 400px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        .user-message {
+            background: rgba(33, 150, 243, 0.3);
+            text-align: right;
+        }
+        .bot-message {
+            background: rgba(76, 175, 80, 0.3);
+        }
+        .input-container {
+            display: flex;
+            gap: 10px;
+        }
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 16px;
+        }
+        input[type="text"]::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            background: #4CAF50;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .suggestions {
+            margin-top: 15px;
+        }
+        .suggestion-btn {
+            margin: 5px;
+            padding: 8px 15px;
+            background: rgba(255, 255, 255, 0.2);
+            font-size: 14px;
+        }
+        .suggestion-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖🍕 Foodie Robo Test Client</h1>
+        
+        <div id="status" class="status disconnected">
+            Disconnected - Click Connect to start chatting!
+        </div>
+        
+        <div id="chat" class="chat-container">
+            <div class="message bot-message">
+                <strong>Foodie Robo:</strong> Welcome! Connect to start chatting about our delicious menu! 🍕🍝🍔
+            </div>
+        </div>
+        
+        <div class="input-container">
+            <input type="text" id="messageInput" placeholder="Ask me about our menu..." disabled>
+            <button id="sendBtn" onclick="sendMessage()" disabled>Send</button>
+            <button id="connectBtn" onclick="toggleConnection()">Connect</button>
+        </div>
+        
+        <div class="suggestions">
+            <strong>Try these:</strong><br>
+            <button class="suggestion-btn" onclick="sendSuggestion('What\'s on the menu?')">What's on the menu?</button>
+            <button class="suggestion-btn" onclick="sendSuggestion('Tell me about the pizza')">Tell me about the pizza</button>
+            <button class="suggestion-btn" onclick="sendSuggestion('How much is the burger?')">How much is the burger?</button>
+            <button class="suggestion-btn" onclick="sendSuggestion('I\'m hungry!')">I'm hungry!</button>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let isConnected = false;
+
+        const statusDiv = document.getElementById('status');
+        const chatDiv = document.getElementById('chat');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const connectBtn = document.getElementById('connectBtn');
+
+        function updateStatus(status, className) {
+            statusDiv.textContent = status;
+            statusDiv.className = `status ${className}`;
+        }
+
+        function addMessage(sender, message, isUser = false) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+            messageDiv.innerHTML = `<strong>${sender}:</strong> ${message}`;
+            chatDiv.appendChild(messageDiv);
+            chatDiv.scrollTop = chatDiv.scrollHeight;
+        }
+
+        function toggleConnection() {
+            if (isConnected) {
+                disconnect();
+            } else {
+                connect();
+            }
+        }
+
+        function connect() {
+            updateStatus('Connecting...', 'connecting');
+            connectBtn.textContent = 'Connecting...';
+            connectBtn.disabled = true;
+
+            ws = new WebSocket('ws://localhost:8080');
+
+            ws.onopen = () => {
+                isConnected = true;
+                updateStatus('Connected to Foodie Robo! 🎉', 'connected');
+                connectBtn.textContent = 'Disconnect';
+                connectBtn.disabled = false;
+                messageInput.disabled = false;
+                sendBtn.disabled = false;
+                messageInput.focus();
+                addMessage('System', 'Connected successfully! Ask me anything about our menu!');
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    let emotion = '';
+                    if (data.emotion === 'happy') emotion = ' 😊';
+                    else if (data.emotion === 'sad') emotion = ' 😢';
+                    else if (data.emotion === 'talking') emotion = ' 🗣️';
+                    
+                    addMessage('Foodie Robo' + emotion, data.response);
+                } catch (error) {
+                    addMessage('Foodie Robo', event.data);
+                }
+            };
+
+            ws.onclose = () => {
+                isConnected = false;
+                updateStatus('Disconnected', 'disconnected');
+                connectBtn.textContent = 'Connect';
+                connectBtn.disabled = false;
+                messageInput.disabled = true;
+                sendBtn.disabled = true;
+                addMessage('System', 'Connection closed');
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                addMessage('System', 'Connection error. Make sure the server is running on ws://localhost:8080');
+                updateStatus('Connection Error', 'disconnected');
+                connectBtn.textContent = 'Connect';
+                connectBtn.disabled = false;
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+            }
+        }
+
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message && isConnected) {
+                addMessage('You', message, true);
+                ws.send(message);
+                messageInput.value = '';
+            }
+        }
+
+        function sendSuggestion(message) {
+            if (isConnected) {
+                messageInput.value = message;
+                sendMessage();
+            }
+        }
+
+        // Allow Enter key to send message
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Auto-connect on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                addMessage('System', 'Make sure your WebSocket server is running with: npm start');
+            }, 1000);
+        });
+    </script>
+</body>
+</html> 
